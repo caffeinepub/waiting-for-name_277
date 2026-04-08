@@ -18,7 +18,7 @@ export interface ScenePart {
   lengthCm: number;
   widthCm: number;
   heightCm: number;
-  /** Current world-space position [x, y, z] in cm */
+  /** Current world-space position [x, y, z] in METERS */
   position: [number, number, number];
   /** Euler rotation in radians [rx, ry, rz] */
   rotation: [number, number, number];
@@ -34,3 +34,13 @@ export interface TruckBounds {
   widthCm: number; // Z axis
   heightCm: number; // Y axis
 }
+
+/** localStorage key for persistent truck dimensions */
+export const TRUCK_DIMS_KEY = "mebelmanager-truck-dims";
+
+/** Default truck dimensions */
+export const DEFAULT_TRUCK_DIMS: TruckBounds = {
+  lengthCm: 600,
+  widthCm: 240,
+  heightCm: 240,
+};

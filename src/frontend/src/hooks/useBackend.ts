@@ -45,9 +45,15 @@ export function useApprovals() {
     queryKey: ["approvals"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.listApprovals();
+      try {
+        return await actor.listApprovals();
+      } catch (e) {
+        console.error("[useApprovals]", e);
+        return [];
+      }
     },
     enabled: !!actor && !isFetching,
+    retry: 1,
   });
 }
 
@@ -89,7 +95,7 @@ export function useBootstrapAdmin() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error("Actor not ready");
+      if (!actor) throw new Error("Прво пријавете се со Internet Identity.");
       return actor.bootstrapAdmin();
     },
     onSuccess: () => {
@@ -105,10 +111,18 @@ export function useIsApproved() {
     queryKey: ["isApproved"],
     queryFn: async () => {
       if (!actor) return false;
-      return actor.isCallerApproved();
+      try {
+        return await actor.isCallerApproved();
+      } catch (e) {
+        console.error("[useIsApproved]", e);
+        return false;
+      }
     },
     enabled: !!actor && !isFetching,
     staleTime: 30_000,
+    retry: 1,
+    // If query never runs (actor not ready), treat as not approved — not loading forever
+    placeholderData: false,
   });
 }
 
@@ -118,10 +132,17 @@ export function useIsAdmin() {
     queryKey: ["isAdmin"],
     queryFn: async () => {
       if (!actor) return false;
-      return actor.isCallerAdmin();
+      try {
+        return await actor.isCallerAdmin();
+      } catch (e) {
+        console.error("[useIsAdmin]", e);
+        return false;
+      }
     },
     enabled: !!actor && !isFetching,
     staleTime: 30_000,
+    retry: 1,
+    placeholderData: false,
   });
 }
 
@@ -133,9 +154,15 @@ export function useProducts() {
     queryKey: ["products"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.listProducts();
+      try {
+        return await actor.listProducts();
+      } catch (e) {
+        console.error("[useProducts]", e);
+        return [];
+      }
     },
     enabled: !!actor && !isFetching,
+    retry: 1,
   });
 }
 
@@ -286,9 +313,15 @@ export function useOrders() {
     queryKey: ["orders"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.listOrders(null, false);
+      try {
+        return await actor.listOrders(null, false);
+      } catch (e) {
+        console.error("[useOrders]", e);
+        return [];
+      }
     },
     enabled: !!actor && !isFetching,
+    retry: 1,
   });
 }
 
@@ -393,9 +426,15 @@ export function useTruckLoads() {
     queryKey: ["truckLoads"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.listTruckLoads();
+      try {
+        return await actor.listTruckLoads();
+      } catch (e) {
+        console.error("[useTruckLoads]", e);
+        return [];
+      }
     },
     enabled: !!actor && !isFetching,
+    retry: 1,
   });
 }
 
@@ -405,9 +444,15 @@ export function useTruckLoad(id: TruckLoadId | null) {
     queryKey: ["truckLoads", id?.toString()],
     queryFn: async () => {
       if (!actor || id === null) return null;
-      return actor.getTruckLoad(id);
+      try {
+        return await actor.getTruckLoad(id);
+      } catch (e) {
+        console.error("[useTruckLoad]", e);
+        return null;
+      }
     },
     enabled: !!actor && !isFetching && id !== null,
+    retry: 1,
   });
 }
 

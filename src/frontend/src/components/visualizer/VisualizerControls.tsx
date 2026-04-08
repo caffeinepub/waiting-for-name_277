@@ -1,6 +1,7 @@
 /**
  * VisualizerControls.tsx
  * Top control bar for the 3D visualizer.
+ * Includes: title, load selector, part count, warnings, action buttons.
  */
 
 import { Button } from "@/components/ui/AppButton";
@@ -65,7 +66,7 @@ export function VisualizerControls({
   const notAllBottoms = parts.length > 0 && !allBottomsSet;
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-card/90 backdrop-blur border-b border-border flex-wrap">
+    <div className="flex items-center gap-3 px-4 py-2.5 bg-card/90 backdrop-blur border-b border-border flex-wrap">
       {/* Title */}
       <div className="flex items-center gap-2 shrink-0">
         <div className="h-7 w-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -84,7 +85,7 @@ export function VisualizerControls({
           type="button"
           onClick={() => setDropdownOpen((v) => !v)}
           className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-smooth min-w-[200px]",
+            "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors min-w-[200px]",
             "bg-muted/20 border-border hover:border-primary/40 hover:bg-muted/30 text-foreground",
           )}
           data-ocid="load-selector"
@@ -97,14 +98,14 @@ export function VisualizerControls({
           </span>
           <ChevronDown
             className={cn(
-              "h-3.5 w-3.5 text-muted-foreground transition-transform",
+              "h-3.5 w-3.5 text-muted-foreground transition-transform duration-150",
               dropdownOpen && "rotate-180",
             )}
           />
         </button>
 
         {dropdownOpen && (
-          <div className="absolute top-full left-0 mt-1 w-full min-w-[240px] bg-popover border border-border rounded-lg shadow-2xl z-50 overflow-hidden">
+          <div className="absolute top-full left-0 mt-1 w-full min-w-[260px] bg-popover border border-border rounded-lg shadow-2xl z-50 overflow-hidden">
             {truckLoads.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground text-center">
                 Нема достапни товари
@@ -120,7 +121,7 @@ export function VisualizerControls({
                       setDropdownOpen(false);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted/40 transition-smooth",
+                      "w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted/40 transition-colors",
                       selectedLoadId !== null && load.id === selectedLoadId
                         ? "bg-primary/10 text-primary"
                         : "text-foreground",
@@ -147,14 +148,14 @@ export function VisualizerControls({
         )}
       </div>
 
-      {/* Parts count */}
+      {/* Part count */}
       {parts.length > 0 && (
         <span className="text-xs text-muted-foreground shrink-0">
           {parts.length} {parts.length === 1 ? "дел" : "делови"}
         </span>
       )}
 
-      {/* Warning */}
+      {/* Warning: not all bottoms set */}
       {notAllBottoms && (
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent/10 border border-accent/30 text-xs text-accent shrink-0">
           <AlertTriangle className="h-3.5 w-3.5" />
@@ -164,14 +165,15 @@ export function VisualizerControls({
 
       <div className="flex-1" />
 
+      {/* Keyboard hint */}
+      {selectedLoadId !== null && parts.length > 0 && (
+        <span className="hidden lg:block text-xs text-muted-foreground/50 shrink-0">
+          R = ротирај дел
+        </span>
+      )}
+
       {/* Action buttons */}
       <div className="flex items-center gap-2 shrink-0">
-        {selectedLoadId !== null && parts.length > 0 && (
-          <span className="hidden lg:block text-xs text-muted-foreground/60">
-            R = ротирај
-          </span>
-        )}
-
         <Button
           type="button"
           variant="ghost"
@@ -181,7 +183,7 @@ export function VisualizerControls({
           data-ocid="visualizer-reset-btn"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Ресет
+          Ресетирај
         </Button>
 
         <Button
@@ -195,7 +197,7 @@ export function VisualizerControls({
           data-ocid="visualizer-optimize-btn"
         >
           <Sparkles className="h-3.5 w-3.5" />
-          Оптимизирај
+          Авто-оптимизација
         </Button>
 
         <Button

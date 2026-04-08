@@ -1,20 +1,21 @@
 /**
  * BottomSidePanel.tsx
- * Side panel for selecting the "bottom face" of a cargo part.
+ * Floating panel (absolute top-right over the 3D canvas) for selecting
+ * the "bottom face" of the currently selected cargo part.
+ * Labels are in Macedonian.
  */
 
-import { Button } from "@/components/ui/AppButton";
 import { BottomSide } from "@/hooks/useBackend";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
 const SIDES: { value: BottomSide; label: string; desc: string }[] = [
-  { value: BottomSide.Bottom, label: "Дно", desc: "Стандардно — дното надолу" },
-  { value: BottomSide.Top, label: "Горе", desc: "Врвот надолу" },
-  { value: BottomSide.Front, label: "Напред", desc: "Предната страна надолу" },
-  { value: BottomSide.Back, label: "Назад", desc: "Задната страна надолу" },
-  { value: BottomSide.Left, label: "Лево", desc: "Левата страна надолу" },
-  { value: BottomSide.Right, label: "Десно", desc: "Десната страна надолу" },
+  { value: BottomSide.Bottom, label: "Дно", desc: "Стандардно дно надолу" },
+  { value: BottomSide.Top, label: "Врв", desc: "Врвот надолу" },
+  { value: BottomSide.Front, label: "Предна", desc: "Предната страна надолу" },
+  { value: BottomSide.Back, label: "Задна", desc: "Задната страна надолу" },
+  { value: BottomSide.Left, label: "Лева", desc: "Левата страна надолу" },
+  { value: BottomSide.Right, label: "Десна", desc: "Десната страна надолу" },
 ];
 
 interface BottomSidePanelProps {
@@ -32,14 +33,16 @@ export function BottomSidePanel({
 }: BottomSidePanelProps) {
   return (
     <div
-      className="absolute top-4 right-4 w-64 bg-card border border-border rounded-xl shadow-2xl overflow-hidden z-50"
+      className="absolute top-4 right-4 w-60 bg-card border border-border rounded-xl shadow-2xl overflow-hidden z-50"
       data-ocid="bottom-side-panel"
+      // Prevent pointer events from reaching the canvas below (stops orbit)
+      onPointerDown={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border bg-muted/30">
         <div className="flex flex-col min-w-0">
           <span className="text-xs font-bold text-primary uppercase tracking-wider">
-            Избери дно
+            Избери страна — дно
           </span>
           <span className="text-xs text-muted-foreground truncate mt-0.5">
             {partLabel}
@@ -49,14 +52,14 @@ export function BottomSidePanel({
           type="button"
           onClick={onClose}
           aria-label="Затвори"
-          className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-smooth"
+          className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
         >
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Side buttons */}
-      <div className="p-3 flex flex-col gap-1.5">
+      <div className="p-2 flex flex-col gap-1">
         {SIDES.map((side) => {
           const isActive = currentSide === side.value;
           return (
@@ -65,23 +68,15 @@ export function BottomSidePanel({
               type="button"
               onClick={() => onSelect(side.value)}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left transition-smooth",
+                "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-left transition-colors",
                 isActive
                   ? "border-primary/60 bg-primary/10 text-foreground"
                   : "border-border bg-muted/10 text-muted-foreground hover:border-primary/30 hover:bg-muted/30 hover:text-foreground",
               )}
               data-ocid={`bottom-side-btn-${side.value.toLowerCase()}`}
             >
-              <div
-                className={cn(
-                  "h-8 w-8 rounded-md border-2 shrink-0 flex items-center justify-center",
-                  isActive ? "border-primary bg-primary/20" : "border-border",
-                )}
-                aria-hidden="true"
-              >
-                <BottomSideIcon side={side.value} active={isActive} />
-              </div>
-              <div className="flex flex-col min-w-0">
+              <SideIcon side={side.value} active={isActive} />
+              <div className="flex flex-col min-w-0 flex-1">
                 <span
                   className={cn(
                     "text-sm font-semibold",
@@ -95,72 +90,66 @@ export function BottomSidePanel({
                 </span>
               </div>
               {isActive && (
-                <span className="ml-auto h-2 w-2 rounded-full bg-primary shrink-0" />
+                <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
               )}
             </button>
           );
         })}
       </div>
 
-      <div className="px-3 pb-3">
-        <Button
+      <div className="px-2 pb-2">
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
           onClick={onClose}
-          className="w-full"
+          className="w-full text-xs text-muted-foreground hover:text-foreground py-1.5 rounded-md hover:bg-muted/30 transition-colors"
         >
           Затвори
-        </Button>
+        </button>
       </div>
     </div>
   );
 }
 
-// ── Side icons ────────────────────────────────────────────────────────────────
+// ── Side icon mini-graphic ────────────────────────────────────────────────────
 
-function BottomSideIcon({
-  side,
-  active,
-}: { side: BottomSide; active: boolean }) {
-  const base = "rounded-sm shrink-0";
-  const clr = active ? "bg-primary" : "bg-muted-foreground";
+function SideIcon({ side, active }: { side: BottomSide; active: boolean }) {
+  const clr = active ? "bg-primary" : "bg-muted-foreground/60";
 
   const icons: Record<BottomSide, React.ReactNode> = {
     [BottomSide.Bottom]: (
-      <div className="flex flex-col gap-px">
-        <div className={cn(base, "h-3.5 w-5 opacity-30", clr)} />
-        <div className={cn(base, "h-1 w-5", clr)} />
+      <div className="flex flex-col gap-0.5 h-6 w-6 items-center justify-center shrink-0">
+        <div className={cn("rounded-sm h-3 w-5 opacity-40", clr)} />
+        <div className={cn("rounded-sm h-1 w-5", clr)} />
       </div>
     ),
     [BottomSide.Top]: (
-      <div className="flex flex-col gap-px">
-        <div className={cn(base, "h-1 w-5", clr)} />
-        <div className={cn(base, "h-3.5 w-5 opacity-30", clr)} />
+      <div className="flex flex-col gap-0.5 h-6 w-6 items-center justify-center shrink-0">
+        <div className={cn("rounded-sm h-1 w-5", clr)} />
+        <div className={cn("rounded-sm h-3 w-5 opacity-40", clr)} />
       </div>
     ),
     [BottomSide.Front]: (
-      <div className="flex flex-row gap-px">
-        <div className={cn(base, "h-5 w-3.5 opacity-30", clr)} />
-        <div className={cn(base, "h-5 w-1", clr)} />
+      <div className="flex flex-row gap-0.5 h-6 w-6 items-center justify-center shrink-0">
+        <div className={cn("rounded-sm h-5 w-3 opacity-40", clr)} />
+        <div className={cn("rounded-sm h-5 w-1", clr)} />
       </div>
     ),
     [BottomSide.Back]: (
-      <div className="flex flex-row gap-px">
-        <div className={cn(base, "h-5 w-1", clr)} />
-        <div className={cn(base, "h-5 w-3.5 opacity-30", clr)} />
+      <div className="flex flex-row gap-0.5 h-6 w-6 items-center justify-center shrink-0">
+        <div className={cn("rounded-sm h-5 w-1", clr)} />
+        <div className={cn("rounded-sm h-5 w-3 opacity-40", clr)} />
       </div>
     ),
     [BottomSide.Left]: (
-      <div className="flex flex-row gap-px items-center">
-        <div className={cn(base, "h-2 w-1", clr)} />
-        <div className={cn(base, "h-5 w-3.5 opacity-30", clr)} />
+      <div className="flex flex-row gap-0.5 h-6 w-6 items-center justify-center shrink-0">
+        <div className={cn("rounded-sm h-2 w-1", clr)} />
+        <div className={cn("rounded-sm h-5 w-3 opacity-40", clr)} />
       </div>
     ),
     [BottomSide.Right]: (
-      <div className="flex flex-row gap-px items-center">
-        <div className={cn(base, "h-5 w-3.5 opacity-30", clr)} />
-        <div className={cn(base, "h-2 w-1", clr)} />
+      <div className="flex flex-row gap-0.5 h-6 w-6 items-center justify-center shrink-0">
+        <div className={cn("rounded-sm h-5 w-3 opacity-40", clr)} />
+        <div className={cn("rounded-sm h-2 w-1", clr)} />
       </div>
     ),
   };

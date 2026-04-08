@@ -11,8 +11,21 @@ import {
 } from "@/hooks/useBackend";
 import { NAV_TABS } from "@/types";
 import type { TabId } from "@/types";
-import { LogIn, ShieldAlert, Truck } from "lucide-react";
-import { Suspense, lazy, useState } from "react";
+import {
+  AlertCircle,
+  LogIn,
+  RefreshCw,
+  ShieldAlert,
+  Truck,
+} from "lucide-react";
+import {
+  Component,
+  type ErrorInfo,
+  type ReactNode,
+  Suspense,
+  lazy,
+  useState,
+} from "react";
 
 const ApprovalPage = lazy(() => import("@/pages/ApprovalPage"));
 const ProductsPage = lazy(() => import("@/pages/ProductsPage"));
@@ -20,9 +33,78 @@ const OrdersPage = lazy(() => import("@/pages/OrdersPage"));
 const ShipmentPage = lazy(() => import("@/pages/ShipmentPage"));
 const VisualizerPage = lazy(() => import("@/pages/VisualizerPage"));
 
-export default function App() {
+// ─── Error Boundary ───────────────────────────────────────────────────────────
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  ErrorBoundaryState
+> {
+  constructor(props: { children: ReactNode; fallback?: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[МебелМенаџер] Грешка во апликацијата:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback ?? (
+          <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-background dark p-6 text-center">
+            <div className="h-16 w-16 rounded-xl bg-destructive/10 border border-destructive/30 flex items-center justify-center">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <div className="max-w-sm">
+              <h2 className="text-xl font-bold font-display text-foreground mb-2">
+                Настана грешка
+              </h2>
+              <p className="text-sm text-muted-foreground mb-1">
+                Апликацијата наиде на неочекувана грешка. Освежете ја страницата
+                и обидете се повторно.
+              </p>
+              {this.state.error && (
+                <p className="text-xs font-mono text-muted-foreground/60 bg-muted/30 border border-border px-3 py-2 rounded mt-3 break-all">
+                  {this.state.error.message}
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="gap-2"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Освежи страница
+            </Button>
+          </div>
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ─── Auth gate ────────────────────────────────────────────────────────────────
+
+function AuthenticatedApp() {
   const { isAuthenticated, isLoggingIn, principal, login, logout } = useAuth();
-  const { data: isApproved, isLoading: approvalLoading } = useIsApproved();
+  const {
+    data: isApproved,
+    isLoading: approvalLoading,
+    isError: approvalError,
+  } = useIsApproved();
   const { data: isAdmin = false } = useIsAdmin();
   const requestApproval = useRequestApproval();
   const bootstrapAdmin = useBootstrapAdmin();
@@ -30,7 +112,7 @@ export default function App() {
   const visibleTabs = NAV_TABS.filter((t) => !t.adminOnly || isAdmin);
   const [activeTab, setActiveTab] = useState<TabId>("orders");
 
-  // ── Not authenticated ───────────────────────────────────────────────────────
+  // ── Not authenticated ─────────────────────────────────────────────────────
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-8 bg-background dark p-6">
@@ -82,6 +164,11 @@ export default function App() {
                 ? "Грешка — обидете се повторно"
                 : "Постави администратор"}
           </Button>
+          {bootstrapAdmin.isError && (
+            <p className="text-[11px] text-destructive/80 text-center max-w-[220px]">
+              Прво пријавете се, потоа поставете администратор.
+            </p>
+          )}
         </div>
 
         <p className="text-xs text-muted-foreground/50">
@@ -91,7 +178,7 @@ export default function App() {
     );
   }
 
-  // ── Checking approval ───────────────────────────────────────────────────────
+  // ── Checking approval ──────────────────────────────────────────────────────
   if (approvalLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background dark">
@@ -100,8 +187,8 @@ export default function App() {
     );
   }
 
-  // ── Awaiting approval ───────────────────────────────────────────────────────
-  if (!isApproved) {
+  // ── Approval check error — treat same as not approved ─────────────────────
+  if (approvalError || !isApproved) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-background dark p-6">
         <div className="flex flex-col items-center gap-3 text-center max-w-sm">
@@ -153,7 +240,7 @@ export default function App() {
     );
   }
 
-  // ── Main app ────────────────────────────────────────────────────────────────
+  // ── Main app ───────────────────────────────────────────────────────────────
   const validTab = visibleTabs.find((t) => t.id === activeTab)
     ? activeTab
     : (visibleTabs[0]?.id ?? "orders");
@@ -199,9 +286,19 @@ export default function App() {
             />
           }
         >
-          {renderPage()}
+          <ErrorBoundary>{renderPage()}</ErrorBoundary>
         </Suspense>
       </div>
     </Layout>
+  );
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AuthenticatedApp />
+    </ErrorBoundary>
   );
 }

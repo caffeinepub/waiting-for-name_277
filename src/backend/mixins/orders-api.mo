@@ -13,7 +13,12 @@ mixin (
   nextOrderId : { var value : Nat },
 ) {
   private func requireApprovedOrders(caller : Principal) {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin) or UserApproval.isApproved(approvalState, caller))) {
+    if (caller.isAnonymous()) { Runtime.trap("Unauthorized: Anonymous callers cannot perform this action") };
+    let isAdmin = switch (accessControlState.userRoles.get(caller)) {
+      case (?#admin) { true };
+      case (_) { false };
+    };
+    if (not (isAdmin or UserApproval.isApproved(approvalState, caller))) {
       Runtime.trap("Unauthorized: Only approved users can perform this action");
     };
   };

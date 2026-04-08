@@ -1,27 +1,43 @@
 /**
  * CargoBox.tsx
  * A single draggable, rotatable furniture part in the R3F scene.
+ * Units: meters (cm / 100). Position = center of box.
+ * Drag: XZ plane at y = part's current Y (floor contact).
+ * R key: cycles orientations when selected.
  */
 
 import type { ScenePart, TruckBounds } from "@/types/visualizer";
-import { useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
-const BOTTOM_ORIENTATIONS: [number, number, number][] = [
-  [0, 0, 0], // Bottom down (default)
-  [Math.PI, 0, 0], // Top down
-  [-Math.PI / 2, 0, 0], // Front down
-  [Math.PI / 2, 0, 0], // Back down
-  [0, 0, Math.PI / 2], // Left down
-  [0, 0, -Math.PI / 2], // Right down
+// Bottom-side rotation presets (euler radians)
+export const BOTTOM_SIDE_ROTATIONS: Record<string, [number, number, number]> = {
+  Bottom: [0, 0, 0],
+  Top: [Math.PI, 0, 0],
+  Front: [-Math.PI / 2, 0, 0],
+  Back: [Math.PI / 2, 0, 0],
+  Left: [0, 0, Math.PI / 2],
+  Right: [0, 0, -Math.PI / 2],
+};
+
+const ROTATION_CYCLE: [number, number, number][] = [
+  [0, 0, 0],
+  [Math.PI, 0, 0],
+  [-Math.PI / 2, 0, 0],
+  [Math.PI / 2, 0, 0],
+  [0, 0, Math.PI / 2],
+  [0, 0, -Math.PI / 2],
 ];
 
 interface CargoBoxProps {
   part: ScenePart;
   truckBounds: TruckBounds;
   isSelected: boolean;
+  isDragging: boolean;
   onSelect: () => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
   onPositionChange: (pos: [number, number, number]) => void;
   onRotationChange: (rot: [number, number, number]) => void;
 }
@@ -30,185 +46,184 @@ export function CargoBox({
   part,
   truckBounds,
   isSelected,
+  isDragging,
   onSelect,
+  onDragStart,
+  onDragEnd,
   onPositionChange,
   onRotationChange,
 }: CargoBoxProps) {
-  const { camera, gl } = useThree();
+  const { camera, gl, raycaster, pointer } = useThree();
 
-  const [isDragging, setIsDragging] = useState(false);
+  // Convert cm to meters: W=length(X), H=height(Y), D=width(Z)
+  const W = part.lengthCm / 100;
+  const H = part.heightCm / 100;
+  const D = part.widthCm / 100;
+
+  const meshRef = useRef<THREE.Mesh>(null);
+  const dragging = useRef(false);
   const dragPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
   const dragOffset = useRef(new THREE.Vector3());
-  const raycaster = useRef(new THREE.Raycaster());
-  const pointer = useRef(new THREE.Vector2());
+  const intersectTarget = useRef(new THREE.Vector3());
 
-  // 1 unit = 1cm
-  const W = part.lengthCm;
-  const H = part.heightCm;
-  const D = part.widthCm;
+  // Refs to capture latest prop values without re-creating handlers
+  const partRef = useRef(part);
+  partRef.current = part;
+  const isDraggingRef = useRef(isDragging);
+  isDraggingRef.current = isDragging;
+  const truckBoundsRef = useRef(truckBounds);
+  truckBoundsRef.current = truckBounds;
 
+  // Out of bounds check (positions in meters, bounds in cm/100)
   const isOutOfBounds = useMemo(() => {
     const [px, py, pz] = part.position;
-    const hw = W / 2;
-    const hh = H / 2;
-    const hd = D / 2;
+    const bL = truckBounds.lengthCm / 100;
+    const bW = truckBounds.widthCm / 100;
+    const bH = truckBounds.heightCm / 100;
     return (
-      px - hw < 0 ||
-      px + hw > truckBounds.lengthCm ||
-      py - hh < 0 ||
-      py + hh > truckBounds.heightCm ||
-      pz - hd < 0 ||
-      pz + hd > truckBounds.widthCm
+      px - W / 2 < 0 ||
+      px + W / 2 > bL ||
+      py - H / 2 < 0 ||
+      py + H / 2 > bH ||
+      pz - D / 2 < 0 ||
+      pz + D / 2 > bW
     );
   }, [part.position, W, H, D, truckBounds]);
 
+  // Material colors
   const baseColor = useMemo(() => new THREE.Color(part.color), [part.color]);
-  const emissiveColor = useMemo(
-    () =>
-      isOutOfBounds
-        ? new THREE.Color(0xff1111)
-        : isSelected
-          ? new THREE.Color(0x004466)
-          : new THREE.Color(0x000000),
-    [isOutOfBounds, isSelected],
-  );
+  const emissiveColor = useMemo(() => {
+    if (isOutOfBounds) return new THREE.Color(0xff2222);
+    if (isSelected) return new THREE.Color(0x004466);
+    return new THREE.Color(0x000000);
+  }, [isOutOfBounds, isSelected]);
 
-  function handlePointerDown(
-    e: THREE.Event & { stopPropagation?: () => void; point?: THREE.Vector3 },
-  ) {
-    if (e.stopPropagation) e.stopPropagation();
-    setIsDragging(true);
-    gl.domElement.style.cursor = "grabbing";
-    dragPlane.current.constant = -part.position[1];
-    if (e.point) {
-      dragOffset.current.set(
-        e.point.x - part.position[0],
-        0,
-        e.point.z - part.position[2],
-      );
-    }
+  // Update material each frame for smooth color response
+  useFrame(() => {
+    if (!meshRef.current) return;
+    const mat = meshRef.current.material as THREE.MeshStandardMaterial;
+    mat.color.lerp(baseColor, 0.2);
+    mat.emissive.lerp(emissiveColor, 0.3);
+    mat.emissiveIntensity = isOutOfBounds ? 0.7 : isSelected ? 0.2 : 0;
+  });
+
+  // Pointer down: start drag
+  function handlePointerDown(e: ThreeEvent<PointerEvent>) {
+    e.stopPropagation();
+    dragging.current = true;
+    onDragStart();
     onSelect();
+    gl.domElement.style.cursor = "grabbing";
+
+    // Drag plane at the box's current Y position
+    dragPlane.current.constant = -partRef.current.position[1];
+    dragOffset.current.set(
+      e.point.x - partRef.current.position[0],
+      0,
+      e.point.z - partRef.current.position[2],
+    );
   }
 
-  function handlePointerUp() {
-    setIsDragging(false);
-    gl.domElement.style.cursor = "grab";
-  }
+  // Use useFrame to handle drag movement (avoids stale closures via refs)
+  useFrame(() => {
+    if (!dragging.current || !isDraggingRef.current) return;
+    raycaster.setFromCamera(pointer, camera);
+    const hit = raycaster.ray.intersectPlane(
+      dragPlane.current,
+      intersectTarget.current,
+    );
+    if (!hit) return;
 
-  function handlePointerMissed() {
-    setIsDragging(false);
-  }
+    const bounds = truckBoundsRef.current;
+    const bL = bounds.lengthCm / 100;
+    const bW = bounds.widthCm / 100;
 
+    const curW = partRef.current.lengthCm / 100;
+    const curD = partRef.current.widthCm / 100;
+
+    const newX = Math.max(
+      curW / 2,
+      Math.min(bL - curW / 2, hit.x - dragOffset.current.x),
+    );
+    const newZ = Math.max(
+      curD / 2,
+      Math.min(bW - curD / 2, hit.z - dragOffset.current.z),
+    );
+    const newY = partRef.current.position[1]; // keep Y stable during XZ drag
+
+    onPositionChange([newX, newY, newZ]);
+  });
+
+  // Pointer up: end drag
   useEffect(() => {
-    if (!isDragging) return;
-    const canvas = gl.domElement;
-
-    function onMouseMove(e: MouseEvent) {
-      const rect = canvas.getBoundingClientRect();
-      pointer.current.set(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1,
-      );
-      raycaster.current.setFromCamera(pointer.current, camera);
-      const target = new THREE.Vector3();
-      raycaster.current.ray.intersectPlane(dragPlane.current, target);
-      if (!target) return;
-
-      const newX = Math.max(
-        W / 2,
-        Math.min(truckBounds.lengthCm - W / 2, target.x - dragOffset.current.x),
-      );
-      const newZ = Math.max(
-        D / 2,
-        Math.min(truckBounds.widthCm - D / 2, target.z - dragOffset.current.z),
-      );
-
-      onPositionChange([newX, part.position[1], newZ]);
+    function handleUp() {
+      if (dragging.current) {
+        dragging.current = false;
+        onDragEnd();
+        gl.domElement.style.cursor = "default";
+      }
     }
+    gl.domElement.addEventListener("pointerup", handleUp);
+    return () => gl.domElement.removeEventListener("pointerup", handleUp);
+  }, [gl, onDragEnd]);
 
-    function onMouseUp() {
-      setIsDragging(false);
-      canvas.style.cursor = "default";
-    }
-
-    canvas.addEventListener("mousemove", onMouseMove);
-    canvas.addEventListener("mouseup", onMouseUp);
-    return () => {
-      canvas.removeEventListener("mousemove", onMouseMove);
-      canvas.removeEventListener("mouseup", onMouseUp);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isDragging,
-    camera,
-    gl,
-    W,
-    D,
-    truckBounds,
-    part.position,
-    onPositionChange,
-  ]);
-
-  // R key rotation
+  // R key: cycle rotation when selected
   useEffect(() => {
     if (!isSelected) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "r" && e.key !== "R") return;
-      const current = BOTTOM_ORIENTATIONS.findIndex(
+      const cur = partRef.current.rotation;
+      const current = ROTATION_CYCLE.findIndex(
         (o) =>
-          Math.abs(o[0] - part.rotation[0]) < 0.01 &&
-          Math.abs(o[1] - part.rotation[1]) < 0.01 &&
-          Math.abs(o[2] - part.rotation[2]) < 0.01,
+          Math.abs(o[0] - cur[0]) < 0.01 &&
+          Math.abs(o[1] - cur[1]) < 0.01 &&
+          Math.abs(o[2] - cur[2]) < 0.01,
       );
-      const next =
-        BOTTOM_ORIENTATIONS[(current + 1) % BOTTOM_ORIENTATIONS.length];
+      const next = ROTATION_CYCLE[(current + 1) % ROTATION_CYCLE.length];
       onRotationChange(next);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isSelected, part.rotation, onRotationChange]);
+  }, [isSelected, onRotationChange]);
 
   return (
     <group position={part.position} rotation={part.rotation}>
+      {/* Main cargo mesh */}
       <mesh
-        position={[0, 0, 0]}
-        onPointerDown={
-          handlePointerDown as unknown as (
-            e: React.PointerEvent<THREE.Object3D>,
-          ) => void
-        }
-        onPointerUp={handlePointerUp}
-        onPointerMissed={handlePointerMissed}
+        ref={meshRef}
         castShadow
         receiveShadow
+        onPointerDown={handlePointerDown}
       >
         <boxGeometry args={[W, H, D]} />
         <meshStandardMaterial
           color={baseColor}
           emissive={emissiveColor}
-          emissiveIntensity={isOutOfBounds ? 0.8 : isSelected ? 0.15 : 0}
-          roughness={0.6}
+          emissiveIntensity={isOutOfBounds ? 0.7 : isSelected ? 0.2 : 0}
+          roughness={0.55}
           metalness={0.1}
           transparent
-          opacity={0.88}
+          opacity={0.9}
         />
       </mesh>
 
+      {/* Selection outline */}
       {isSelected && (
         <lineSegments>
-          <edgesGeometry args={[new THREE.BoxGeometry(W + 1, H + 1, D + 1)]} />
+          <edgesGeometry
+            args={[new THREE.BoxGeometry(W + 0.015, H + 0.015, D + 0.015)]}
+          />
           <lineBasicMaterial color={0x22d3ee} linewidth={2} />
         </lineSegments>
       )}
 
-      {/* Bottom face highlight */}
-      <mesh position={[0, -H / 2 + 0.5, 0]}>
-        <boxGeometry args={[W - 2, 1, D - 2]} />
+      {/* Bottom face indicator strip */}
+      <mesh position={[0, -H / 2 + 0.005, 0]}>
+        <boxGeometry args={[W * 0.9, 0.01, D * 0.9]} />
         <meshStandardMaterial
           color={0x22d3ee}
           emissive={new THREE.Color(0x22d3ee)}
-          emissiveIntensity={0.4}
-          roughness={0.3}
+          emissiveIntensity={0.5}
         />
       </mesh>
     </group>

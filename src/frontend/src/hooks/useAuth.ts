@@ -1,15 +1,44 @@
 import { useInternetIdentity } from "@caffeineai/core-infrastructure";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-// Since backend.d.ts has an empty interface (bindgen not run yet),
-// we expose auth state and a ready flag derived from Internet Identity.
 
 export function useAuth() {
-  const { identity, loginStatus, login, clear } = useInternetIdentity();
+  const {
+    identity,
+    loginStatus,
+    login: iiLogin,
+    clear,
+  } = useInternetIdentity();
 
   const isAuthenticated = loginStatus === "success" && !!identity;
   const isLoggingIn = loginStatus === "logging-in";
   const principal = identity?.getPrincipal().toText() ?? null;
+
+  // Wrap login in try/catch so errors never propagate as unhandled rejections
+  const login = () => {
+    try {
+      const result: unknown = iiLogin();
+      if (result !== null && typeof result === "object" && "catch" in result) {
+        (result as Promise<unknown>).catch((err: unknown) => {
+          console.error("[МебелМенаџер] Login error:", err);
+        });
+      }
+    } catch (err) {
+      console.error("[МебелМенаџер] Login sync error:", err);
+    }
+  };
+
+  // Wrap logout similarly
+  const logout = () => {
+    try {
+      const result: unknown = clear();
+      if (result !== null && typeof result === "object" && "catch" in result) {
+        (result as Promise<unknown>).catch((err: unknown) => {
+          console.error("[МебелМенаџер] Logout error:", err);
+        });
+      }
+    } catch (err) {
+      console.error("[МебелМенаџер] Logout sync error:", err);
+    }
+  };
 
   return {
     identity,
@@ -18,6 +47,6 @@ export function useAuth() {
     loginStatus,
     principal,
     login,
-    logout: clear,
+    logout,
   };
 }

@@ -102,12 +102,12 @@ module {
       case null { false };
       case (?i) {
         let product = state.at(i);
-        let partExists = product.parts.values().find(func(pt : ProductTypes.Part) : Bool { pt.id == partId });
+        let partExists = product.parts.find(func(pt : ProductTypes.Part) : Bool { pt.id == partId });
         switch (partExists) {
           case null { false };
           case (?_) {
             let updatedParts = product.parts.map(
-              func(pt) {
+              func(pt : ProductTypes.Part) : ProductTypes.Part {
                 if (pt.id == partId) {
                   { pt with name = name; lengthCm = lengthCm; widthCm = widthCm; heightCm = heightCm; weightKg = weightKg; bottomSide = bottomSide }
                 } else { pt }
@@ -131,7 +131,7 @@ module {
       case null { false };
       case (?i) {
         let product = state.at(i);
-        let partExists = product.parts.values().find(func(pt : ProductTypes.Part) : Bool { pt.id == partId });
+        let partExists = product.parts.find(func(pt : ProductTypes.Part) : Bool { pt.id == partId });
         switch (partExists) {
           case null { false };
           case (?_) {

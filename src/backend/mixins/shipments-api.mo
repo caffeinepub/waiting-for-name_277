@@ -18,7 +18,12 @@ mixin (
   nextTruckLoadId : { var value : Nat },
 ) {
   private func requireApprovedShipments(caller : Principal) {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin) or UserApproval.isApproved(approvalState, caller))) {
+    if (caller.isAnonymous()) { Runtime.trap("Unauthorized: Anonymous callers cannot perform this action") };
+    let isAdmin = switch (accessControlState.userRoles.get(caller)) {
+      case (?#admin) { true };
+      case (_) { false };
+    };
+    if (not (isAdmin or UserApproval.isApproved(approvalState, caller))) {
       Runtime.trap("Unauthorized: Only approved users can perform this action");
     };
   };
@@ -78,7 +83,7 @@ mixin (
     // Gather orders assigned to this truck load
     let allOrders = orders.toArray();
     let truckOrders = allOrders.filter(func(o : OrderTypes.Order) : Bool {
-      truckLoad.orderIds.values().find(func(oid : Common.OrderId) : Bool { oid == o.id }) != null
+      truckLoad.orderIds.find(func(oid : Common.OrderId) : Bool { oid == o.id }) != null
     });
 
     // Prioritize them
