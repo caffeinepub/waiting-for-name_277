@@ -1,0 +1,144 @@
+type UserRole = 
+ variant {
+   admin;
+   guest;
+   user;
+ };
+type UserApprovalInfo = 
+ record {
+   "principal": principal;
+   status: ApprovalStatus;
+ };
+type TruckLoadStatus = 
+ variant {
+   Pending;
+   Shipped;
+ };
+type TruckLoadId = nat;
+type TruckLoad = 
+ record {
+   createdAt: Timestamp;
+   id: TruckLoadId;
+   loadingScheme: vec PartPlacement;
+   orderIds: vec OrderId;
+   status: TruckLoadStatus;
+   truckDimensions: TruckDimensions;
+ };
+type TruckDimensions = 
+ record {
+   heightCm: nat;
+   lengthCm: nat;
+   widthCm: nat;
+ };
+type Timestamp = int;
+type ProductId = nat;
+type Product = 
+ record {
+   active: bool;
+   id: ProductId;
+   name: text;
+   parts: vec Part;
+ };
+type PartPlacement = 
+ record {
+   orderId: OrderId;
+   partId: PartId;
+   posX: float64;
+   posY: float64;
+   posZ: float64;
+   productId: ProductId;
+   rotW: float64;
+   rotX: float64;
+   rotY: float64;
+   rotZ: float64;
+ };
+type PartId = nat;
+type Part = 
+ record {
+   bottomSide: BottomSide;
+   heightCm: nat;
+   id: PartId;
+   lengthCm: nat;
+   name: text;
+   weightKg: float64;
+   widthCm: nat;
+ };
+type OrderStatus = 
+ variant {
+   Pending;
+   Shipped;
+ };
+type OrderItem = 
+ record {
+   productId: ProductId;
+   quantity: nat;
+ };
+type OrderId = nat;
+type Order = 
+ record {
+   clientName: text;
+   clientStore: text;
+   createdAt: Timestamp;
+   deadline: Timestamp;
+   emergency: bool;
+   id: OrderId;
+   items: vec OrderItem;
+   status: OrderStatus;
+ };
+type BottomSide = 
+ variant {
+   Back;
+   Bottom;
+   Front;
+   Left;
+   Right;
+   Top;
+ };
+type ApprovalStatus = 
+ variant {
+   approved;
+   pending;
+   rejected;
+ };
+service : {
+  _initializeAccessControl: () -> ();
+  addPart: (productId: ProductId, name: text, lengthCm: nat, widthCm: 
+   nat, heightCm: nat, weightKg: float64, bottomSide: BottomSide) ->
+   (opt Part);
+  assignCallerUserRole: (user: principal, role: UserRole) -> ();
+  bootstrapAdmin: () -> ();
+  createOrder: (clientName: text, clientStore: text, items: vec OrderItem,
+   deadline: Timestamp, emergency: bool) -> (Order);
+  createProduct: (name: text) -> (Product);
+  createTruckLoad: (truckDimensions: TruckDimensions, orderIds:
+   vec OrderId) -> (TruckLoad);
+  deactivateProduct: (id: ProductId) -> (bool);
+  deleteOrder: (id: OrderId) -> (bool);
+  getCallerUserRole: () -> (UserRole) query;
+  getOrder: (id: OrderId) -> (opt Order) query;
+  getPrioritizedOrderIds: () -> (vec OrderId) query;
+  getProduct: (id: ProductId) -> (opt Product) query;
+  getTruckLoad: (id: TruckLoadId) -> (opt TruckLoad) query;
+  isCallerAdmin: () -> (bool) query;
+  isCallerApproved: () -> (bool) query;
+  listApprovals: () -> (vec UserApprovalInfo);
+  listOrders: (statusFilter: opt OrderStatus, emergencyOnly: bool) ->
+   (vec Order) query;
+  listProducts: () -> (vec Product) query;
+  listTruckLoads: () -> (vec TruckLoad) query;
+  optimizeTruckLoad: (id: TruckLoadId) -> (bool);
+  removePart: (productId: ProductId, partId: PartId) -> (bool);
+  requestApproval: () -> ();
+  saveLoadingScheme: (id: TruckLoadId, placements: vec PartPlacement) ->
+   (bool);
+  setApproval: (user: principal, status: ApprovalStatus) -> ();
+  setOrderStatus: (id: OrderId, status: OrderStatus) -> (bool);
+  setTruckLoadStatus: (id: TruckLoadId, status: TruckLoadStatus) -> (bool);
+  updateOrder: (id: OrderId, clientName: text, clientStore: text, items:
+   vec OrderItem, deadline: Timestamp, emergency: bool) -> (bool);
+  updatePart: (productId: ProductId, partId: PartId, name: text, lengthCm:
+   nat, widthCm: nat, heightCm: nat, weightKg: float64, bottomSide:
+   BottomSide) -> (bool);
+  updateProduct: (id: ProductId, name: text, active: bool, parts:
+   vec Part) -> (bool);
+}

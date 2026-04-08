@@ -1,0 +1,112 @@
+// Version: 1.0.0
+type ApprovalStatus__575141016 = {#approved; #pending; #rejected};
+type BottomSide__1031222792 = {#Back; #Bottom; #Front; #Left; #Right; #Top};
+type Data__791452850<K, V> =
+  {var count : Nat__490723111; kvs : [var ?(K, V)]};
+type Internal__8484328<K, V> =
+  {children : [var ?Node__46230540<K, V>]; data : Data__791452850<K, V>};
+type Leaf__809889148<K, V> = {data : Data__791452850<K, V>};
+type Map__158565046<K, V> = Map__297112838<K, V>;
+type Map__297112838<K, V> =
+  {var root : Node__46230540<K, V>; var size : Nat__490723111};
+type Map__605269027<K, V> = Map__158565046<K, V>;
+type Nat__490723111 = Nat__920180692;
+type Nat__920180692 = Nat;
+type Node__46230540<K, V> =
+  {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
+type OrderId__197865225 = Nat;
+type OrderItem__241319351 =
+  {productId : ProductId__160010635; quantity : Nat};
+type OrderStatus__393009242 = {#Pending; #Shipped};
+type Order__141779993 =
+  {
+    clientName : Text;
+    clientStore : Text;
+    createdAt : Timestamp__301639476;
+    deadline : Timestamp__301639476;
+    emergency : Bool;
+    id : OrderId__197865225;
+    items : [OrderItem__241319351];
+    status : OrderStatus__393009242
+  };
+type PartId__419502793 = Nat;
+type PartPlacement__736268057 =
+  {
+    orderId : OrderId__197865225;
+    partId : PartId__419502793;
+    posX : Float;
+    posY : Float;
+    posZ : Float;
+    productId : ProductId__160010635;
+    rotW : Float;
+    rotX : Float;
+    rotY : Float;
+    rotZ : Float
+  };
+type Part__128512863 =
+  {
+    bottomSide : BottomSide__1031222792;
+    heightCm : Nat;
+    id : PartId__419502793;
+    lengthCm : Nat;
+    name : Text;
+    weightKg : Float;
+    widthCm : Nat
+  };
+type ProductId__160010635 = Nat;
+type Product__750902660 =
+  {
+    active : Bool;
+    id : ProductId__160010635;
+    name : Text;
+    parts : [Part__128512863]
+  };
+type Timestamp__301639476 = Int;
+type TruckDimensions__146337200 =
+  {heightCm : Nat; lengthCm : Nat; widthCm : Nat};
+type TruckLoadId__499452492 = Nat;
+type TruckLoadStatus__521369731 = {#Pending; #Shipped};
+type TruckLoad__149677899 =
+  {
+    createdAt : Timestamp__301639476;
+    id : TruckLoadId__499452492;
+    loadingScheme : [PartPlacement__736268057];
+    orderIds : [OrderId__197865225];
+    status : TruckLoadStatus__521369731;
+    truckDimensions : TruckDimensions__146337200
+  };
+type UserRole__1054455867 = {#admin; #guest; #user};
+actor {
+  stable accessControlState :
+    {
+      var adminAssigned : Bool;
+      userRoles : Map__605269027<Principal, UserRole__1054455867>
+    };
+  stable approvalState :
+    {
+      var approvalStatus :
+        Map__605269027<Principal, ApprovalStatus__575141016>
+    };
+  stable nextOrderId : {var value : Nat};
+  stable nextPartId : {var value : Nat};
+  stable nextProductId : {var value : Nat};
+  stable nextTruckLoadId : {var value : Nat};
+  stable orders :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?Order__141779993]];
+      var elementIndex : Nat__490723111
+    };
+  stable products :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?Product__750902660]];
+      var elementIndex : Nat__490723111
+    };
+  stable truckLoads :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?TruckLoad__149677899]];
+      var elementIndex : Nat__490723111
+    }
+};

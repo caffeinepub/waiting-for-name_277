@@ -1,0 +1,23 @@
+{
+  "overview": "МебелМенаџер is a furniture company management system for optimizing order processing and truck loading. It features a product catalog with parts/dimensions, order management with emergency priority handling, a shipment planner, and an interactive 3D cargo visualizer where parts can be dragged, rotated, and auto-optimized for maximum truck utilization.",
+  "features": [
+    "Admin user approval workflow",
+    "Products catalog with parts and L×W×H dimensions",
+    "Order management with emergency flag and deadline priority",
+    "Shipment planner grouped by deadline and emergency status",
+    "Interactive 3D cargo visualizer with drag, rotate, red-glow on overflow",
+    "Per-part bottom-side orientation selector",
+    "Auto-optimize packing algorithm for truck loading",
+    "Full UI in Macedonian"
+  ],
+  "category": "productivity",
+  "tags": [
+    "furniture",
+    "logistics",
+    "order-management",
+    "3d-visualization",
+    "truck-loading",
+    "macedonian"
+  ],
+  "last_updated": "2026-04-08T04:08:33.401Z"
+}
